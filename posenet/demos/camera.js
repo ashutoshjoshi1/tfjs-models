@@ -36,6 +36,7 @@ function isMobile() {
   return isAndroid() || isiOS();
 }
 
+
 /**
  * Loads a the camera to be used in the demo
  *
@@ -76,7 +77,7 @@ async function loadVideo() {
 }
 
 const guiState = {
-  algorithm: 'multi-pose',
+  algorithm: 'single-pose',
   input: {
     mobileNetArchitecture: isMobile() ? '0.50' : '0.75',
     outputStride: 16,
@@ -117,7 +118,7 @@ function setupGui(cameras, net) {
   // person to be in the frame or results will be innaccurate. Multi-pose works
   // for more than 1 person
   const algorithmController =
-      gui.add(guiState, 'algorithm', ['single-pose', 'multi-pose']);
+      gui.add(guiState, 'algorithm', ['single-pose']);
 
   // The input parameters have the most effect on accuracy and speed of the
   // network
@@ -263,7 +264,20 @@ function detectPoseInRealTime(video, net) {
     // and draw the resulting skeleton and keypoints if over certain confidence
     // scores
     poses.forEach(({score, keypoints}) => {
+      console.log(keypoints)
       if (score >= minPoseConfidence) {
+          $.ajax({
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(keypoints),
+            dataType: 'json',
+            url: 'http://127.0.0.1:5000/secondary',
+            success: function (e) {
+            },
+            error: function(error) {
+              console.log(error);
+            }
+        });
         if (guiState.output.showPoints) {
           drawKeypoints(keypoints, minPartConfidence, ctx);
         }

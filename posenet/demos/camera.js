@@ -310,18 +310,28 @@ export async function bindPage() {
   document.getElementById('loading').style.display = 'none';
   document.getElementById('main').style.display = 'block';
 
-  let video;
 
-  try {
-    video = await loadVideo();
-  } catch (e) {
-    let info = document.getElementById('info');
-    info.textContent = 'this browser does not support video capture,' +
-        'or this device does not have a camera';
-    info.style.display = 'block';
-    throw e;
-  }
+async function loadVideo_1() {
+  const video = document.getElementById("video");
+  video.play();
+  return video;
+}
 
+  // let video;
+
+  // try {
+  //   video = await loadVideo_1();
+  // } catch (e) {
+  //   let info = document.getElementById('info');
+  //   info.textContent = 'this browser does not support video capture,' +
+  //       'or this device does not have a camera';
+  //   info.style.display = 'block';
+  //   throw e;
+  // }
+  const video = document.getElementById("video");
+  video.load();
+  video.width = videoWidth;
+  video.height = videoHeight;
   setupGui([], net);
   setupFPS();
   detectPoseInRealTime(video, net);

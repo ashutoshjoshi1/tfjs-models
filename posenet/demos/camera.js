@@ -19,9 +19,10 @@ import dat from 'dat.gui';
 import Stats from 'stats.js';
 
 import {drawBoundingBox, drawKeypoints, drawSkeleton} from './demo_util';
+import { exec } from 'child_process';
 
-const videoWidth = 600;
-const videoHeight = 500;
+const videoWidth = 400;
+const videoHeight = 400;
 const stats = new Stats();
 
 function isAndroid() {
@@ -111,7 +112,6 @@ function setupGui(cameras, net) {
   if (cameras.length > 0) {
     guiState.camera = cameras[0].deviceId;
   }
-
   const gui = new dat.GUI({width: 300});
 
   // The single-pose algorithm is faster and simpler but requires only one
@@ -184,6 +184,60 @@ function setupGui(cameras, net) {
     }
   });
 }
+
+// Feature Generation Code
+function get_angle(A,B,C) {
+  var AB = Math.sqrt(Math.pow(B.x-A.x,2)+ Math.pow(B.y-A.y,2));    
+  var BC = Math.sqrt(Math.pow(B.x-C.x,2)+ Math.pow(B.y-C.y,2)); 
+  var AC = Math.sqrt(Math.pow(C.x-A.x,2)+ Math.pow(C.y-A.y,2));
+  return (Math.acos((BC*BC+AB*AB-AC*AC)/(2*BC*AB))* 180) / Math.PI;
+}
+
+function get_features(keypoints){
+  let l_w;
+  let l_e;
+  let l_s;
+  let l_h;
+  let l_k;
+  let l_a;
+
+  let r_w;
+  let r_e;
+  let r_s;
+  let r_h;
+  let r_k;
+  let r_a;
+  for (var i = 0; i < keypoints.length; i++) {
+      console.log(keypoints[i].part);
+      switch(keypoints[i].part){
+        case 'leftWrist': l_w = keypoints[i].position; break;
+        case 'leftElbow': l_e = keypoints[i].position; break;
+        case 'leftShoulder': l_s = keypoints[i].position; break;
+        case 'leftHip': l_h = keypoints[i].position; break;
+        case 'leftKnee': l_k = keypoints[i].position; break;
+        case 'leftAnkle': l_a = keypoints[i].position; break;
+
+        case 'rightWrist': r_w = keypoints[i].position; break;
+        case 'rightElbow': r_e = keypoints[i].position; break;
+        case 'rightShoulder': r_s = keypoints[i].position; break;
+        case 'rightHip': r_h = keypoints[i].position; break;
+        case 'rightKnee': r_k = keypoints[i].position; break;
+        case 'rightAnkle': r_a = keypoints[i].position; break;
+        }
+      }
+    console.log(r_w, r_e, r_s, r_h, r_k, r_a, l_w, l_e, l_s, l_h, l_k, l_a)
+    return {r_wes : get_angle(r_w, r_e, r_s),
+            r_esh : get_angle(r_e, r_s, r_h),
+            r_shk : get_angle(r_s, r_h, r_k),
+            r_hka : get_angle(r_h, r_k, r_a),
+
+            l_wes : get_angle(l_w, l_e, l_s),
+            l_esh : get_angle(l_e, l_s, l_h),
+            l_shk : get_angle(l_s, l_h, l_k),
+            l_hka : get_angle(l_h, l_k, l_a)
+            };
+  }
+
 
 /**
  * Sets up a frames per second panel on the top-left of the window
@@ -266,18 +320,24 @@ function detectPoseInRealTime(video, net) {
     poses.forEach(({score, keypoints}) => {
       console.log(keypoints)
       if (score >= minPoseConfidence) {
+          var features = get_features(keypoints)
+        if (video.paused == false){
           $.ajax({
             type: 'POST',
             contentType: 'application/json',
-            data: JSON.stringify(keypoints),
+            data: JSON.stringify(features),
             dataType: 'json',
+            async: false,
             url: 'http://127.0.0.1:5000/secondary',
-            success: function (e) {
+            success: function (response) {
+              console.log(response)
+              $('#count').val(response['count']);
             },
-            error: function(error) {
+            error: function(error) { 
               console.log(error);
             }
-        });
+        });}
+        
         if (guiState.output.showPoints) {
           drawKeypoints(keypoints, minPartConfidence, ctx);
         }
@@ -330,13 +390,31 @@ async function loadVideo_1() {
   // }
   const video = document.getElementById("video");
   video.load();
-  video.width = videoWidth;
-  video.height = videoHeight;
+  video.height = videoHeight
+  video.width = videoWidth
+
+  var mixBut = document.getElementById("mixBut");
+
+  mixBut.addEventListener("click", Start);
   setupGui([], net);
   setupFPS();
-  detectPoseInRealTime(video, net);
-}
+  function Start(){
+      video.play()
+      console.log("Started");
+      mixBut.removeEventListener("click", Start);
+      mixBut.addEventListener("click", Stop);
+      mixBut.value = "Stop";
+      detectPoseInRealTime(video, net);
+  }
 
+  function Stop(){
+      video.pause()
+      console.log("Stopped");
+      mixBut.removeEventListener("click", Stop);
+      mixBut.addEventListener("click", Start);
+      mixBut.value = "Start";
+  }
+}
 navigator.getUserMedia = navigator.getUserMedia ||
     navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
 // kick off the demo
